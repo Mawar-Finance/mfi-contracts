@@ -8,5 +8,6 @@ interface ISavingsVault {
     function deposit(uint256 amount) external;                                                                          // untuk deposit MFI ke vault
     function redeem(uint256 tokenId) external;                                                                          // untuk redeem NFT dan menerima MFI
     function previewRedeem(uint256 tokenId) external view returns (uint256 principal, uint256 fee, uint256 payout);     // perkiraan jumlah MFI yg diterima saat redeem
-    function getUserDeposits(address user) external view returns (uint256[] memory);                                    // mendapatkan array token IDs yg dimiliki user
+    function getUserDeposits(address user) external view returns (uint256[] memory);        
+    function onNftTransfer(address from, address to, uint256 tokenId) external;                                             // mendapatkan array token IDs yg dimiliki user
 }

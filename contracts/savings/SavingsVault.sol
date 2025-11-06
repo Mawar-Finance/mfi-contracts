@@ -138,4 +138,69 @@ contract SavingsVault is ReentrancyGuard {
         }
         return userDeposits[user];
     }
+    /**
+     * @notice Dipanggil otomatis oleh NFT contract setiap kali ada transfer antar user (via callback)
+     * @param from Alamat pemilik lama
+     * @param to Alamat pemilik baru
+     * @param tokenId ID NFT yang dipindahkan
+     */
+    function onNftTransfer(address from, address to, uint256 tokenId) external /* nonReentrant opsional */ {
+        // Hanya izinkan pemanggilan dari kontrak NFT resmi (biar gak bisa diserang kontrak luar)
+        require(msg.sender == address(nft), "only nft");
+
+        // =====================================================
+        // ========== HAPUS tokenId dari pemilik lama ==========
+        // =====================================================
+
+        // Ambil posisi (index+1) token di array userDeposits[from]
+        uint256 idxPlusOne = depositIndex[tokenId];
+
+        // Kalau token tersebut memang terdaftar di list userDeposits[from]
+        if (idxPlusOne > 0) {
+            // Kurangi 1 untuk dapetin index aslinya
+            uint256 idx = idxPlusOne - 1;
+
+            // Ambil index terakhir di array pemilik lama
+            uint256 lastIdx = userDeposits[from].length - 1;
+
+            // Jika token yang mau dihapus bukan elemen terakhir di array
+            if (idx != lastIdx) {
+                // Ambil token terakhir di array untuk swap
+                uint256 lastToken = userDeposits[from][lastIdx];
+
+                // Gantikan posisi token yang dihapus dengan token terakhir
+                userDeposits[from][idx] = lastToken;
+
+                // Update depositIndex untuk token yang ditukar posisinya
+                depositIndex[lastToken] = idx + 1;
+            }
+
+            // Hapus elemen terakhir (pop) karena sudah disalin ke posisi idx
+            userDeposits[from].pop();
+
+            // Reset index tokenId yang sudah dipindahkan ke 0 (tidak terdaftar di from lagi)
+            depositIndex[tokenId] = 0;
+        }
+
+        // =====================================================
+        // ===== TAMBAH tokenId ke pemilik baru (user to) ======
+        // =====================================================
+
+        // Tambahkan tokenId ke array milik pemilik baru
+        userDeposits[to].push(tokenId);
+
+        // Simpan posisi baru tokenId di array pemilik baru (index+1)
+        depositIndex[tokenId] = userDeposits[to].length;
+
+        // =====================================================
+        // ========== RESET buket aktif kalau perlu ============
+        // =====================================================
+
+        // Jika token yang dipindahkan adalah buket aktif si pemilik lama,
+        // maka reset activeBucketId[from] ke 0 (karena udah pindah tangan)
+        if (activeBucketId[from] == tokenId) {
+            activeBucketId[from] = 0;
+        }
+    }
+
 }

@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "../libs/Errors.sol";
+import "../interfaces/ISavingsVault.sol"; // interface: function onNftTransfer(address from, address to, uint256 tokenId) external;
+
 
 /// @title SavingsNFT - Buket Mawar (ERC721)
 /// @dev Vault ditetapkan sekali melalui setVaultOnce oleh deployer NFT, setelah itu permanen.
@@ -79,6 +81,29 @@ contract SavingsNFT is ERC721 {
         emit Burned(tokenId);           // Mencatat event pembakaran NFT.
     }
 
+    
+    // Dipanggil otomatis oleh ERC721 setiap kali NFT berpindah tangan (transfer, mint, burn)
+    function _afterTokenTransfer(address from, address to, uint256 tokenId, uint256 /*batchSize*/) 
+        internal 
+        override 
+    {
+        // Panggil fungsi bawaan ERC721 untuk memastikan logika transfer tetap berjalan normal
+        super._afterTokenTransfer(from, to, tokenId, 1);
+
+        // Kondisi di bawah memastikan:
+        // - from != address(0): berarti ini bukan mint (karena mint asalnya dari address(0))
+        // - to != address(0): berarti ini bukan burn (karena burn tujuannya address(0))
+        // - vault != address(0): pastikan alamat Vault udah di-set
+        if (from != address(0) && to != address(0) && vault != address(0)) {
+            
+            // Panggil fungsi di Vault untuk kasih tahu bahwa token dengan tokenId tertentu
+            // baru saja berpindah dari 'from' ke 'to'
+            // Tujuannya agar Vault bisa update data userDeposits dan depositIndex
+            ISavingsVault(vault).onNftTransfer(from, to, tokenId);
+        }
+    }
+
+    
     /// @notice Lihat roseCount suatu NFT
     function roseCountOf(uint256 tokenId) external view returns (uint8) {
         return _roseCount[tokenId];     // Mengembalikan jumlah mawar untuk NFT dengan ID token yang diberikan.
