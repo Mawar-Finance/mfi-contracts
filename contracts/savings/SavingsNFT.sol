@@ -29,7 +29,7 @@ contract SavingsNFT is ERC721 {
     event Upgraded(uint256 indexed tokenId, uint8 oldCount, uint8 newCount);
     event Burned(uint256 indexed tokenId);
 
-    /// @param  nama dan simbol NFT di- hardcode
+    // @param nama dan simbol NFT di- hardcode
     constructor() ERC721("Mawar Savings Buket", "MSB") {
         initializer = msg.sender;
     }
