@@ -24,6 +24,11 @@ contract SavingsVault is ReentrancyGuard {
     /// @dev buket aktif per user (0 jika tidak ada)
     mapping(address => uint256) public activeBucketId;
 
+    /// @dev array token IDs yang dimiliki user
+    mapping(address => uint256[]) private userDeposits;
+    /// @dev index (plus one) dari tokenId di array userDeposits[user]
+    mapping(uint256 => uint256) private depositIndex;
+
     event Deposited(address indexed user, uint256 amountMFI, uint256 rosesAdded);
     event NFTMinted(address indexed user, uint256 indexed tokenId, uint8 roseCount);
     event NFTUpgraded(address indexed user, uint256 indexed tokenId, uint8 oldCount, uint8 newCount);
@@ -63,6 +68,9 @@ contract SavingsVault is ReentrancyGuard {
                 uint8 initial = uint8(rosesToAdd > 10 ? 10 : rosesToAdd);
                 tokenId = nft.mint(msg.sender, initial);
                 activeBucketId[msg.sender] = tokenId;
+                // Track deposit
+                userDeposits[msg.sender].push(tokenId);
+                depositIndex[tokenId] = userDeposits[msg.sender].length; // store index+1
                 emit NFTMinted(msg.sender, tokenId, initial);
                 rosesToAdd -= initial;
                 if (initial == 10) {
@@ -101,6 +109,22 @@ contract SavingsVault is ReentrancyGuard {
             activeBucketId[msg.sender] = 0;
         }
 
+        // Remove from userDeposits using swap-pop
+        uint256 idxPlusOne = depositIndex[tokenId];
+        if (idxPlusOne > 0) {
+            uint256 idx = idxPlusOne - 1;
+            uint256 lastIdx = userDeposits[msg.sender].length - 1;
+            
+            if (idx != lastIdx) {
+                // Swap with last element
+                uint256 lastToken = userDeposits[msg.sender][lastIdx];
+                userDeposits[msg.sender][idx] = lastToken;
+                depositIndex[lastToken] = idx + 1;
+            }
+            userDeposits[msg.sender].pop();
+            depositIndex[tokenId] = 0;
+        }
+
         // kirim fee ke treasury (jika > 0)
         if (fee > 0) {
             bool okFee = mfi.transfer(treasury, fee);
@@ -124,5 +148,19 @@ contract SavingsVault is ReentrancyGuard {
         principal = uint256(roses) * ROSE_UNIT;
         fee = (principal * feeBps) / 10_000;
         payout = principal - fee;
+    }
+
+    /// @notice Get semua token IDs yang dimiliki user
+    /// @param user Alamat user yang dicari depositnya
+    /// @return Array dari token IDs yang dimiliki user
+    function getUserDeposits(address user) external view returns (uint256[] memory) {
+        if (user == address(0)) {
+            return new uint256[](0);
+        }
+        // Empty array if no deposits yet
+        if (userDeposits[user].length == 0) {
+            return new uint256[](0);
+        }
+        return userDeposits[user];
     }
 }

@@ -19,6 +19,7 @@ contract SavingsNFT is ERC721 {
     address public immutable initializer;
 
     /// @dev roseCount per tokenId (1..10)
+    /// HashMap menyimpan jumlah mawar tiap NFT
     mapping(uint256 => uint8) private _roseCount;
 
     uint8 public constant MAX_ROSES = 10;
@@ -48,15 +49,18 @@ contract SavingsNFT is ERC721 {
 
     /// @notice Mint NFT baru ke `to` dengan `initialRoses` (1..10). Hanya Vault.
     function mint(address to, uint8 initialRoses) external onlyVault returns (uint256 tokenId) {
+        // Validasi: kalau alamat tujuan kosong (0x0), transaksi dibatalkan.
         if (to == address(0)) revert Errors.ZeroAddress();
+
+        // Validasi: initialRoses harus antara 1 dan MAX_ROSES
         if (initialRoses == 0 || initialRoses > MAX_ROSES) revert Errors.ExceedsMaxRoses();
 
-        _ids.increment();
-        tokenId = _ids.current();
-        _safeMint(to, tokenId);
-        _roseCount[tokenId] = initialRoses;
+        _ids.increment();                       // Menambah counter ID token untuk membuat ID unik bagi NFT baru.
+        tokenId = _ids.current();               // Mendapatkan ID token saat ini dari counter.
+        _safeMint(to, tokenId);                 // Mint NFT baru dengan ID token yang dihasilkan ke alamat `to`.
+        _roseCount[tokenId] = initialRoses;     // Menetapkan jumlah mawar awal untuk NFT yang baru dibuat.
 
-        emit Minted(to, tokenId, initialRoses);
+        emit Minted(to, tokenId, initialRoses); // Mencatat event minting NFT baru.
     }
 
     /// @notice Upgrade jumlah mawar (tambah) hingga maksimum 10. Hanya Vault.
