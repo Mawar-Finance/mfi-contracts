@@ -1,0 +1,45 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_30-89a104707673a6d6ad63f69e4477d07ff2eb4aa8",
+  "solcVersion": "0.8.30",
+  "solcLongVersion": "0.8.30+commit.73712a01",
+  "userSourceNameMap": {
+    "contracts/exchange/Exchange.sol": "project/contracts/exchange/Exchange.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "prague",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/exchange/Exchange.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.24; // Versi compiler Solidity yang digunakan\r\n\r\n// Import interface token MFI (mirip ERC20 tapi disesuaikan)\r\nimport \"../interfaces/IMFI.sol\";\r\n\r\n// Import library custom untuk error handling\r\nimport \"../libs/Errors.sol\";\r\n\r\n/// @title Exchange - Beli MFI pakai ETH (kurs tetap, immutable)\r\n/// @dev Kontrak ini hanya MENJUAL token MFI dari stok yang dimilikinya (bukan mencetak token baru)\r\n///      Artinya, pemilik kontrak harus lebih dulu mengirim sejumlah MFI ke kontrak ini agar bisa dijual.\r\ncontract Exchange {\r\n    // Deklarasi variabel `mfi` bertipe interface IMFI, immutable artinya tidak bisa diubah setelah deploy\r\n    IMFI public immutable mfi;\r\n\r\n    /// @notice Nilai tukar MFI per 1 ETH, menggunakan 18 desimal (contoh: 3000e18 berarti 3000 MFI per 1 ETH)\r\n    uint256 public immutable rate;\r\n\r\n    // Event untuk mencatat setiap pembelian MFI (siapa pembeli, berapa ETH masuk, berapa MFI keluar)\r\n    event Purchased(address indexed buyer, uint256 ethIn, uint256 mfiOut);\r\n\r\n    /// @param _mfi Alamat kontrak token MFI\r\n    /// @param _rate Nilai tukar MFI per 1 ETH (dalam 18 desimal)\r\n    constructor(IMFI _mfi, uint256 _rate) {\r\n        // Validasi: alamat token MFI tidak boleh nol\r\n        if (address(_mfi) == address(0)) revert Errors.ZeroAddress();\r\n\r\n        // Validasi: rate tidak boleh 0\r\n        if (_rate == 0) revert Errors.InvalidAmount();\r\n\r\n        // Set nilai mfi dan rate yang bersifat tetap (immutable)\r\n        mfi = _mfi;\r\n        rate = _rate;\r\n    }\r\n\r\n    /// @notice Fungsi utama untuk membeli MFI dengan ETH berdasarkan kurs tetap\r\n    /// @param to Alamat penerima token MFI hasil pembelian\r\n    function buyMFI(address to) public payable {\r\n        // Pastikan alamat tujuan tidak kosong\r\n        if (to == address(0)) revert Errors.ZeroAddress();\r\n\r\n        // Pastikan jumlah ETH yang dikirim tidak nol\r\n        if (msg.value == 0) revert Errors.InvalidAmount();\r\n\r\n        // Hitung jumlah MFI yang harus diberikan ke pembeli\r\n        // Rumus: ETH * rate / 1e18 (karena 18 desimal)\r\n        uint256 mfiOut = (msg.value * rate) / 1e18;\r\n\r\n        // Ambil saldo MFI yang dimiliki kontrak ini (stok likuiditas)\r\n        uint256 bal = mfi.balanceOf(address(this));\r\n\r\n        // Pastikan stok MFI cukup untuk dibeli\r\n        require(bal >= mfiOut, \"Exchange: insufficient MFI liquidity\");\r\n\r\n        // Transfer MFI dari kontrak ini ke alamat pembeli\r\n        bool ok = mfi.transfer(to, mfiOut);\r\n\r\n        // Pastikan transfer berhasil\r\n        require(ok, \"Exchange: MFI transfer failed\");\r\n\r\n        // Emit event pembelian berhasil\r\n        emit Purchased(to, msg.value, mfiOut);\r\n    }\r\n\r\n    /// @notice Fungsi fallback: kalau user kirim ETH langsung ke kontrak tanpa panggil fungsi apa pun,\r\n    ///         otomatis akan dianggap beli MFI dan token dikirim ke pengirim\r\n    receive() external payable {\r\n        buyMFI(msg.sender);\r\n    }\r\n}\r\n"
+      },
+      "project/contracts/interfaces/IMFI.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.24;\r\n\r\n/// @title IMFI (Minimal ERC20 Interface)\r\n/// @notice Antarmuka minimal token MFI yang dipakai di project (tanpa fungsi mint/burn)\r\n/// @dev Hanya expose fungsi yang dibutuhkan Vault/Frontend: decimals, balanceOf, transfer, transferFrom\r\ninterface IMFI {\r\n    /// @notice Jumlah desimal yang dipakai token (contoh: 18)\r\n    /// @dev Berguna buat konversi UI (mis. 1 MFI = 10**decimals)\r\n    /// @return uint8 Banyaknya desimal\r\n    function decimals() external view returns (uint8);\r\n\r\n    /// @notice Cek saldo MFI milik `account`\r\n    /// @param account Alamat yang dicek saldonya\r\n    /// @return uint256 Saldo dalam satuan paling kecil (wei-nya token)\r\n    function balanceOf(address account) external view returns (uint256);\r\n\r\n    /// @notice Transfer MFI dari caller (msg.sender) ke `to`\r\n    /// @dev Mengembalikan true kalau sukses; biasanya revert kalau gagal\r\n    /// @param to Penerima token\r\n    /// @param amount Jumlah token (dalam satuan paling kecil)\r\n    /// @return bool Status sukses transfer\r\n    function transfer(address to, uint256 amount) external returns (bool);\r\n\r\n    /// @notice Transfer MFI dari `from` ke `to` menggunakan allowance\r\n    /// @dev Butuh `approve` sebelumnya dari `from` ke caller minimal sebesar `amount`\r\n    /// @param from Pemilik token yang di-debit\r\n    /// @param to Penerima token\r\n    /// @param amount Jumlah token (dalam satuan paling kecil)\r\n    /// @return bool Status sukses transfer\r\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\r\n}\r\n"
+      },
+      "project/contracts/libs/Errors.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.24;\r\n\r\n/// @notice Custom errors (hemat gas)\r\nlibrary Errors {\r\n    error ZeroAddress();\r\n    error InvalidAmount();\r\n    error NotMultipleOfRoseUnit();\r\n    error ExceedsMaxRoses();\r\n    error NotTokenOwner();\r\n    error Unauthorized();\r\n}\r\n"
+      }
+    }
+  }
+}

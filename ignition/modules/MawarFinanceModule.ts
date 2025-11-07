@@ -2,7 +2,7 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 const MawarFinanceModule = buildModule("MawarFinanceModule", (m) => {
   // ===== Static values =====
-  const TREASURY = "0x542bf9e46f15f534c8eaf58885663059359a8817"; // ganti ke wallet lu
+  const TREASURY = "0x81e677affc980bfdb2f89d2f2284c8ea902bdbf0"; // ganti ke wallet lu
   const FEE_BPS = 250;                        // 2.5% fee
   const INITIAL_SUPPLY = 1_000_000n * 10n**18n; // 1,000,000 MFI
   const RATE_MFI_PER_ETH = 300_000_000n * 10n**18n; // 300,000,000 MFI per ETH | 1 MFI = 0.00000001 ETH
